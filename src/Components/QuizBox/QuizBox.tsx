@@ -5,32 +5,37 @@ import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
 import { Button, FormHelperText, Grid } from "@mui/material";
+import CircularProgress from "@mui/material/CircularProgress";
 //Components
 import Question from "../Question/Questions";
+import { mockData } from "../../Tools/mockData";
 //fetchApi
 import { fetchApi } from "../../Tools/Api";
 //types
-import { Response } from "../../Types";
+import { StateResults, AnswerObject } from "../../Types";
 
 const QuizBox: React.FC = () => {
+  //States
   const [condition, setcondition] = React.useState(false);
   const [value, setValue] = React.useState({
     amount: "",
     difficulty: "",
     category: "",
   });
-  console.log(value);
-  const [data, setData] = React.useState<Response[]>([]);
+  const [questions, setQuestions] = React.useState<StateResults[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [gameOver, setGameOver] = React.useState(true);
-  const [questionNumber, setQuestionNumber] = React.useState(1);
+  const [questionNumber, setQuestionNumber] = React.useState(0);
   const [score, setScore] = React.useState(0);
+  const [userAnswer, setUserAnswer] = React.useState<AnswerObject[]>([]);
 
+  //Effect
   React.useEffect(() => {
     const data = fetchApi(value.amount, value.difficulty, value.category);
-    // setData(data)
+    data.then((res) => setQuestions(res)).finally(() => setLoading(false));
   }, [condition]);
 
+  //Functions
   const handleChange = (event: SelectChangeEvent) => {
     setValue({
       ...value,
@@ -41,15 +46,48 @@ const QuizBox: React.FC = () => {
     setLoading(true);
     setGameOver(false);
     setcondition((prev) => !prev);
+    setScore(0);
+    setQuestionNumber(0);
+    setUserAnswer([]);
   };
   const finishGame = () => {
     setGameOver(true);
+  };
+  const checkAnswer = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const answer = event.currentTarget.value;
+    const test =
+      questions[questionNumber].correct_answer === answer ? true : false;
+    const uncorrect =
+      questions[questionNumber].correct_answer !== answer ? answer : "";
+    if (test) setScore((prev) => prev + 1);
+    const answerObject = {
+      question: questions[questionNumber].question,
+      uncorrect,
+      answer,
+      correct_answer: questions[questionNumber].correct_answer,
+    };
+    setUserAnswer([...userAnswer, answerObject]);
+  };
+  const nextQuestion = () => {
+    const nextquestion = questionNumber + 1;
+    if (nextquestion === +value.amount) {
+      setGameOver(true);
+    } else setQuestionNumber(nextquestion);
+  };
+
+  //Props
+  const Props = {
+    questions,
+    questionNumber,
+    userAnswer,
+    nextQuestion,
+    checkAnswer,
   };
 
   return (
     <>
       <h1>Quiz</h1>
-      <Box>Score : {score}</Box>
+      <Box sx={{ fontWeight: "bold", fontSize: 18 }}>Score : {score}</Box>
       <Box
         sx={{
           width: "400px",
@@ -70,7 +108,7 @@ const QuizBox: React.FC = () => {
               Finish
             </Button>
             <p>
-              {questionNumber} / {value.amount}
+              {questionNumber + 1} / {value.amount}
             </p>
           </Grid>
         ) : (
@@ -97,9 +135,11 @@ const QuizBox: React.FC = () => {
                   <MenuItem value="">
                     <em>None</em>
                   </MenuItem>
-                  <MenuItem value={10}>Ten</MenuItem>
-                  <MenuItem value={15}>Fifteen</MenuItem>
-                  <MenuItem value={20}>Twenty</MenuItem>
+                  {mockData.amount.map((item) => (
+                    <MenuItem key={item.value} value={item.value}>
+                      {item.lable}
+                    </MenuItem>
+                  ))}
                 </Select>
                 <FormHelperText>Amount</FormHelperText>
               </FormControl>
@@ -116,9 +156,11 @@ const QuizBox: React.FC = () => {
                   <MenuItem value="">
                     <em>None</em>
                   </MenuItem>
-                  <MenuItem value={"easy"}>Easy</MenuItem>
-                  <MenuItem value={"medium"}>Medium</MenuItem>
-                  <MenuItem value={"hard"}>Hard</MenuItem>
+                  {mockData.difficulty.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
                 </Select>
                 <FormHelperText>difficulty</FormHelperText>
               </FormControl>
@@ -135,14 +177,11 @@ const QuizBox: React.FC = () => {
                   <MenuItem value="">
                     <em>None</em>
                   </MenuItem>
-                  <MenuItem value={11}>Film</MenuItem>
-                  <MenuItem value={12}>Music</MenuItem>
-                  <MenuItem value={10}>Books</MenuItem>
-                  <MenuItem value={15}>Games</MenuItem>
-                  <MenuItem value={18}>Computer</MenuItem>
-                  <MenuItem value={21}>Sport</MenuItem>
-                  <MenuItem value={23}>History</MenuItem>
-                  <MenuItem value={27}>Animals</MenuItem>
+                  {mockData.category.map((item) => (
+                    <MenuItem key={item.value} value={item.value}>
+                      {item.lable}
+                    </MenuItem>
+                  ))}
                 </Select>
                 <FormHelperText>Category</FormHelperText>
               </FormControl>
@@ -157,7 +196,15 @@ const QuizBox: React.FC = () => {
             </Button>
           </Grid>
         )}
-        {!gameOver ? <Question /> : ""}
+        {!gameOver && !loading ? (
+          <Question {...Props} />
+        ) : !gameOver ? (
+          <Box>
+            <CircularProgress />
+          </Box>
+        ) : (
+          ""
+        )}
       </Box>
     </>
   );
